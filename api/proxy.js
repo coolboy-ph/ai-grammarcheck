@@ -60,7 +60,8 @@ Format:
             },
         };
         
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-1.5:generateContent?key=${apiKey}`;
+        // Using the specified Gemini 2.5 Flash model
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         // 8. Make the actual request to the Google Gemini API.
         const geminiResponse = await fetch(apiUrl, {
@@ -110,7 +111,11 @@ Format:
     }
 }
 
-// Vercel Edge runtime configuration
+// By removing the config block below, this function will default to the standard 
+// Node.js serverless runtime, which is more reliable for accessing environment variables.
+/*
 export const config = {
   runtime: 'edge',
 };
+*/
+
