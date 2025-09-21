@@ -1,6 +1,5 @@
 // Vercel Serverless Function
 // This file should be placed in the `/api` directory of your project.
-// Vercel will automatically deploy it as a serverless function.
 
 export default async function handler(request) {
     // 1. We only accept POST requests.
@@ -12,7 +11,7 @@ export default async function handler(request) {
     }
 
     // 2. Get the API key from Vercel's environment variables.
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
 
     // 3. Check if the API key is configured.
     if (!apiKey) {
@@ -26,7 +25,7 @@ export default async function handler(request) {
         // 4. Get the messages payload from the client's request body.
         const { messages } = await request.json();
 
-        // Define the system prompt on the server-side for security and control.
+        // 5. Define the system prompt on the server-side for security and control.
         const systemPrompt = `You are a Grammar Check assistant. If the user's input is in Burmese, first translate it to English. Then, provide the grammar correction for the translated English sentence.
 Your job is to check the user’s English sentence and respond using the following rules and format.
 Rules:
@@ -46,43 +45,57 @@ Format:
 <b>📚 Learning Tip</b>
 - Give a short, practical grammar/vocabulary tip related to the mistake so the user can remember it in the future.`;
 
-        // Create the final messages array, starting with our secure system prompt.
-        const finalMessages = [{ role: "system", content: systemPrompt }];
+        // 6. Transform the message history into Gemini's required format.
+        const contents = messages.map(msg => ({
+            role: msg.role === 'assistant' ? 'model' : 'user', // Map 'assistant' to 'model'
+            parts: [{ text: msg.content }]
+        }));
 
-        // Add user/assistant messages from the client, skipping any system messages from the client.
-        messages.forEach(msg => {
-            if (msg.role !== 'system') {
-                finalMessages.push(msg);
-            }
-        });
+        // 7. Construct the final payload for the Gemini API.
+        const payload = {
+            contents: contents,
+            systemInstruction: {
+                parts: [{ text: systemPrompt }]
+            },
+        };
+        
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-        // 5. Make the actual request to the OpenRouter API.
-        const openRouterResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        // 8. Make the actual request to the Google Gemini API.
+        const geminiResponse = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
             },
-            body: JSON.stringify({
-                model: "deepseek/deepseek-chat-v3.1:free",
-                messages: finalMessages, // Use the new, secure messages array
-            }),
+            body: JSON.stringify(payload),
         });
 
-        // 6. Handle errors from the OpenRouter API.
-        if (!openRouterResponse.ok) {
-            const errorText = await openRouterResponse.text();
-            console.error("OpenRouter API Error:", errorText);
-            return new Response(JSON.stringify({ error: `OpenRouter API Error: ${errorText}` }), {
-                status: openRouterResponse.status,
+        // 9. Handle errors from the Gemini API.
+        if (!geminiResponse.ok) {
+            const errorText = await geminiResponse.text();
+            console.error("Gemini API Error:", errorText);
+            return new Response(JSON.stringify({ error: `Gemini API Error: ${errorText}` }), {
+                status: geminiResponse.status,
                 headers: { 'Content-Type': 'application/json' },
             });
         }
 
-        // 7. Stream the response back to our client.
-        const data = await openRouterResponse.json();
+        // 10. Parse the response and extract the generated text.
+        const result = await geminiResponse.json();
+        const candidate = result.candidates?.[0];
+        const generatedText = candidate?.content?.parts?.[0]?.text;
         
-        return new Response(JSON.stringify(data), {
+        // 11. Wrap the response in the format the client-side code expects.
+        // This avoids having to change the client-side parsing logic.
+        const clientResponse = {
+            choices: [{
+                message: {
+                    content: generatedText || "I'm sorry, I couldn't get a valid response from the AI."
+                }
+            }]
+        };
+
+        return new Response(JSON.stringify(clientResponse), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
         });
