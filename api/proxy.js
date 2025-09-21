@@ -60,7 +60,7 @@ Format:
             },
         };
         
-        // Using the specified Gemini 2.5 Flash model
+        // Using the Gemini 2.5 Flash model as per the documentation.
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         // 8. Make the actual request to the Google Gemini API.
@@ -85,10 +85,24 @@ Format:
         // 10. Parse the response and extract the generated text.
         const result = await geminiResponse.json();
         const candidate = result.candidates?.[0];
-        const generatedText = candidate?.content?.parts?.[0]?.text;
+        
+        // Handle cases where the response might be blocked for safety reasons
+        if (!candidate || !candidate.content || !candidate.content.parts) {
+            const blockReason = result.promptFeedback?.blockReason;
+            const safetyRatings = result.promptFeedback?.safetyRatings;
+            console.error('Response blocked or invalid.', { blockReason, safetyRatings });
+            const errorMessage = blockReason 
+                ? `My response was blocked for the following reason: ${blockReason}. Please modify your prompt.`
+                : "I'm sorry, I received an invalid response from the AI. Please try again.";
+             return new Response(JSON.stringify({ choices: [{ message: { content: errorMessage } }] }), {
+                status: 200, // Sending 200 so the client can parse the friendly error
+                headers: { 'Content-Type': 'application/json' },
+            });
+        }
+
+        const generatedText = candidate.content.parts[0].text;
         
         // 11. Wrap the response in the format the client-side code expects.
-        // This avoids having to change the client-side parsing logic.
         const clientResponse = {
             choices: [{
                 message: {
@@ -110,12 +124,4 @@ Format:
         });
     }
 }
-
-// By removing the config block below, this function will default to the standard 
-// Node.js serverless runtime, which is more reliable for accessing environment variables.
-/*
-export const config = {
-  runtime: 'edge',
-};
-*/
 
