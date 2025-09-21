@@ -440,24 +440,6 @@
         // The API endpoint is now our own proxy function.
         const proxyEndpoint = "/api/proxy"; 
 
-        const systemPrompt = `You are an Grammar Check. Your job is to check the user’s English sentence and respond using the following rules and format.
-Rules:
-- Always be clear and concise.
-- Use simple language; avoid overly technical grammar jargon.
-- Focus on improving fluency and natural expression.
-- When possible, point out the exact phrase changed and why.
-- Do not use <br> tags for line breaks; use natural line breaks.
-- Use a dash (-) for bullet points.
-Format:
-<b>✅ Corrected Sentence</b>
-- Provide the corrected version with proper grammar.
-<b>📝 Explanation</b>
-- Explain the grammar mistakes and corrections in simple, clear language. Keep the explanation short and actionable.
-<b>💡 Alternative Expressions</b>
-- Suggest 1–3 alternative natural ways to say the same thing (short, natural examples).
-<b>📚 Learning Tip</b>
-- Give a short, practical grammar/vocabulary tip related to the mistake so the user can remember it in the future.`;
-
         function adjustTextareaHeight(textarea) {
             textarea.style.height = 'auto'; // Reset height
             textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
@@ -504,18 +486,21 @@ Format:
         }
 
         async function callApi(userMessage) {
-            const apiMessages = [{ role: "system", content: systemPrompt }];
+            // The system prompt is now handled by the proxy, so we only send the history.
+            const apiMessages = []; 
             
             messageHistory.forEach(msg => {
+                // The proxy expects "user" or "assistant" as roles.
+                const role = msg.sender === 'user' ? 'user' : 'assistant';
                 apiMessages.push({
-                    role: msg.sender,
+                    role: role,
                     content: msg.content
                 });
             });
             
             apiMessages.push({ role: "user", content: userMessage });
 
-            // Fetch from our own proxy endpoint now
+            // Fetch from our own proxy endpoint
             const response = await fetch(proxyEndpoint, {
                 method: 'POST',
                 headers: { 
