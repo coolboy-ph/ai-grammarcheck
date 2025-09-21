@@ -11,11 +11,12 @@ export default async function handler(request) {
     }
 
     // 2. Get the API key from Vercel's environment variables.
-    const apiKey = import.meta.env.GEMINI_API_KEY;
+    // Vercel uses process.env for environment variables in serverless functions.
+    const apiKey = process.env.GEMINI_API_KEY;
 
     // 3. Check if the API key is configured.
     if (!apiKey) {
-        return new Response(JSON.stringify({ error: 'API key not configured on server' }), {
+        return new Response(JSON.stringify({ error: 'API key not configured on server. Check Vercel environment variables.' }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' },
         });
@@ -59,7 +60,7 @@ Format:
             },
         };
         
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-1.5:generateContent?key=${apiKey}`;
 
         // 8. Make the actual request to the Google Gemini API.
         const geminiResponse = await fetch(apiUrl, {
@@ -113,4 +114,3 @@ Format:
 export const config = {
   runtime: 'edge',
 };
-
