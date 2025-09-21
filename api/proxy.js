@@ -64,7 +64,7 @@ Format:
                 'Authorization': `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-                model: "x-ai/grok-4-fast:free",
+                model: "deepseek/deepseek-chat-v3.1:free",
                 messages: finalMessages, // Use the new, secure messages array
             }),
         });
