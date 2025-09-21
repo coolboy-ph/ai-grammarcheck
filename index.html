@@ -16,6 +16,7 @@
             --text-primary: #f5f5f5;
             --text-secondary: #a3a3a3;
             --border: #404040;
+            --error: #ef4444;
         }
 
         * {
@@ -295,6 +296,10 @@
             border-color: var(--primary);
         }
 
+        .input-wrapper.error {
+            border-color: var(--error);
+        }
+
         .message-input {
             flex: 1;
             width: 100%;
@@ -403,7 +408,7 @@
 
 
         <div class="input-area">
-            <div class="input-wrapper">
+            <div class="input-wrapper" id="inputWrapper">
                 <textarea 
                     class="message-input" 
                     id="messageInput" 
@@ -430,24 +435,11 @@
         const messagesContainer = document.getElementById('messages');
         const welcomeContainer = document.getElementById('welcomeContainer');
         const typingIndicatorWrapper = document.getElementById('typingIndicatorWrapper');
+        const inputWrapper = document.getElementById('inputWrapper');
 
-        // !! IMPORTANT: API KEY FOR VERCEL DEPLOYMENT !!
-        //
-        // Your OpenRouter API key needs to be set here.
-        // Hardcoding keys in client-side code is INSECURE and not recommended.
-        // Anyone can view your key by inspecting your site's source code.
-        //
-        // **RECOMMENDED APPROACH (Secure):**
-        // Create a Vercel Serverless Function to act as a proxy. The serverless function
-        // would read your API key from Vercel's Environment Variables and make the call
-        // to the OpenRouter API. Your frontend code would then call your serverless function.
-        //
-        // **EASIEST METHOD (Insecure):**
-        // Manually replace the placeholder string below with your actual API key.
-        const openRouterApiKey = import.meta.env.OPENROUTER_API_KEY; 
-        
-        const endpoint = "https://openrouter.ai/api/v1/chat/completions";
-        const model = "x-ai/grok-4-fast:free"; // Or another model you prefer
+        // The API endpoint is now our own proxy function.
+        const proxyEndpoint = "/api/proxy"; 
+
         const systemPrompt = `You are an Grammar Check. Your job is to check the user’s English sentence and respond using the following rules and format.
 Rules:
 - Always be clear and concise.
@@ -479,6 +471,7 @@ Format:
         }
 
         function startWithPrompt(promptText) {
+            if (messageInput.disabled) return;
             messageInput.value = promptText;
             sendMessage();
         }
@@ -501,7 +494,7 @@ Format:
                 addMessage(response, 'assistant');
             } catch (error) {
                 console.error('API Error:', error);
-                addMessage("I apologize, but I'm having trouble connecting. Please check your API key and browser console for errors.", 'assistant');
+                addMessage(`I apologize, but I'm having trouble connecting. The proxy server might not be configured correctly. Check the Vercel deployment logs and ensure the <code>OPENROUTER_API_KEY</code> environment variable is set.`, 'assistant');
             } finally {
                 hideTypingIndicator();
                 sendButton.disabled = false;
@@ -522,21 +515,20 @@ Format:
             
             apiMessages.push({ role: "user", content: userMessage });
 
-            const response = await fetch(endpoint, {
+            // Fetch from our own proxy endpoint now
+            const response = await fetch(proxyEndpoint, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openRouterApiKey}`
                 },
                 body: JSON.stringify({
-                    model: model,
                     messages: apiMessages
                 })
             });
 
             if (!response.ok) {
                 const errorBody = await response.text();
-                throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+                throw new Error(`Proxy request failed with status ${response.status}: ${errorBody}`);
             }
 
             const data = await response.json();
@@ -545,7 +537,7 @@ Format:
             if (choice && choice.message && choice.message.content) {
                 return choice.message.content;
             } else {
-                return "I'm sorry, an error occurred. I could not get a valid response.";
+                return "I'm sorry, an error occurred. I could not get a valid response from the proxy.";
             }
         }
         
@@ -571,7 +563,6 @@ Format:
             
             const messageContent = document.createElement('div');
             messageContent.className = 'message';
-            // Sanitize content before setting innerHTML in a real app
             messageContent.innerHTML = content.replace(/\n/g, '<br>');
             
             messageWrapper.append(avatar, messageContent);
@@ -591,6 +582,7 @@ Format:
         }
 
         function clearChat() {
+            if (messageInput.disabled) return;
             messagesContainer.innerHTML = '';
             if (welcomeContainer) {
                  messagesContainer.appendChild(welcomeContainer);
