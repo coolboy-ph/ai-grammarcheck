@@ -476,7 +476,7 @@
                 addMessage(response, 'assistant');
             } catch (error) {
                 console.error('API Error:', error);
-                addMessage(`I apologize, but I'm having trouble connecting. The proxy server might not be configured correctly. Check the Vercel deployment logs and ensure the <code>OPENROUTER_API_KEY</code> environment variable is set.`, 'assistant');
+                addMessage(`I apologize, but I'm having trouble connecting. The proxy server might not be configured correctly. Check the Vercel deployment logs and ensure the <code>GEMINI_API_KEY</code> environment variable is set.`, 'assistant');
             } finally {
                 hideTypingIndicator();
                 sendButton.disabled = false;
