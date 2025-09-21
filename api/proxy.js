@@ -55,7 +55,7 @@ Format:
 
         // 7. Construct the final payload for the OpenRouter API.
         const payload = {
-            model: "x-ai/grok-4-fast:free",
+            model: "deepseek/deepseek-chat-v3.1:free",
             messages: openRouterMessages,
         };
         
@@ -66,7 +66,10 @@ Format:
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                'Authorization': `Bearer ${apiKey}`,
+                // OpenRouter requires these headers to identify your app.
+                'HTTP-Referer': request.headers.get('referer') || 'https://grammar-check-ai.vercel.app',
+                'X-Title': 'Grammar Check AI'
             },
             body: JSON.stringify(payload),
         });
