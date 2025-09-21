@@ -26,6 +26,36 @@ export default async function handler(request) {
         // 4. Get the messages payload from the client's request body.
         const { messages } = await request.json();
 
+        // Define the system prompt on the server-side for security and control.
+        const systemPrompt = `You are a Grammar Check assistant. If the user's input is in Burmese, first translate it to English. Then, provide the grammar correction for the translated English sentence.
+Your job is to check the user’s English sentence and respond using the following rules and format.
+Rules:
+- Always be clear and concise.
+- Use simple language; avoid overly technical grammar jargon.
+- Focus on improving fluency and natural expression.
+- When possible, point out the exact phrase changed and why.
+- Do not use <br> tags for line breaks; use natural line breaks.
+- Use a dash (-) for bullet points.
+Format:
+<b>✅ Corrected Sentence</b>
+- Provide the corrected version with proper grammar.
+<b>📝 Explanation</b>
+- Explain the grammar mistakes and corrections in simple, clear language. Keep the explanation short and actionable.
+<b>💡 Alternative Expressions</b>
+- Suggest 1–3 alternative natural ways to say the same thing (short, natural examples).
+<b>📚 Learning Tip</b>
+- Give a short, practical grammar/vocabulary tip related to the mistake so the user can remember it in the future.`;
+
+        // Create the final messages array, starting with our secure system prompt.
+        const finalMessages = [{ role: "system", content: systemPrompt }];
+
+        // Add user/assistant messages from the client, skipping any system messages from the client.
+        messages.forEach(msg => {
+            if (msg.role !== 'system') {
+                finalMessages.push(msg);
+            }
+        });
+
         // 5. Make the actual request to the OpenRouter API.
         const openRouterResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: 'POST',
@@ -35,7 +65,7 @@ export default async function handler(request) {
             },
             body: JSON.stringify({
                 model: "x-ai/grok-4-fast:free",
-                messages: messages,
+                messages: finalMessages, // Use the new, secure messages array
             }),
         });
 
@@ -70,3 +100,4 @@ export default async function handler(request) {
 export const config = {
   runtime: 'edge',
 };
+
