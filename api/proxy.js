@@ -55,7 +55,7 @@ Format:
 
         // 7. Construct the final payload for the OpenRouter API.
         const payload = {
-            model: "deepseek/deepseek-chat-v3.1:free",
+            model: "x-ai/grok-4-fast:free",
             messages: openRouterMessages,
         };
         
