@@ -11,7 +11,7 @@ export default async function handler(request) {
     }
 
     // 2. Get the API key from Vercel's environment variables.
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = import.meta.env.GEMINI_API_KEY;
 
     // 3. Check if the API key is configured.
     if (!apiKey) {
