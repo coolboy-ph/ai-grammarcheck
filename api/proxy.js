@@ -11,12 +11,12 @@ export default async function handler(request) {
     }
 
     // 2. Get the API key from Vercel's environment variables.
-    // Vercel uses process.env for environment variables in serverless functions.
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Note: We are now using OPENROUTER_API_KEY
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
     // 3. Check if the API key is configured.
     if (!apiKey) {
-        return new Response(JSON.stringify({ error: 'API key not configured on server. Check Vercel environment variables.' }), {
+        return new Response(JSON.stringify({ error: 'API key not configured on server. Check Vercel environment variables for OPENROUTER_API_KEY.' }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' },
         });
@@ -46,63 +46,47 @@ Format:
 <b>📚 Learning Tip</b>
 - Give a short, practical grammar/vocabulary tip related to the mistake so the user can remember it in the future.`;
 
-        // 6. Transform the message history into Gemini's required format.
-        const contents = messages.map(msg => ({
-            role: msg.role === 'assistant' ? 'model' : 'user', // Map 'assistant' to 'model'
-            parts: [{ text: msg.content }]
-        }));
+        // 6. Transform the message history into OpenRouter's required format.
+        // The first message is the system prompt.
+        const openRouterMessages = [
+            { role: 'system', content: systemPrompt },
+            ...messages // The client already sends messages in the correct {role, content} format.
+        ];
 
-        // 7. Construct the final payload for the Gemini API.
+        // 7. Construct the final payload for the OpenRouter API.
         const payload = {
-            contents: contents,
-            systemInstruction: {
-                parts: [{ text: systemPrompt }]
-            },
+            model: "deepseek/deepseek-chat-v3.1:free",
+            messages: openRouterMessages,
         };
         
-        // Using the Gemini 2.5 Flash model as per the documentation.
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://openrouter.ai/api/v1/chat/completions`;
 
-        // 8. Make the actual request to the Google Gemini API.
-        const geminiResponse = await fetch(apiUrl, {
+        // 8. Make the actual request to the OpenRouter API.
+        const openRouterResponse = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify(payload),
         });
 
-        // 9. Handle errors from the Gemini API.
-        if (!geminiResponse.ok) {
-            const errorText = await geminiResponse.text();
-            console.error("Gemini API Error:", errorText);
-            return new Response(JSON.stringify({ error: `Gemini API Error: ${errorText}` }), {
-                status: geminiResponse.status,
+        // 9. Handle errors from the OpenRouter API.
+        if (!openRouterResponse.ok) {
+            const errorText = await openRouterResponse.text();
+            console.error("OpenRouter API Error:", errorText);
+            return new Response(JSON.stringify({ error: `OpenRouter API Error: ${errorText}` }), {
+                status: openRouterResponse.status,
                 headers: { 'Content-Type': 'application/json' },
             });
         }
 
         // 10. Parse the response and extract the generated text.
-        const result = await geminiResponse.json();
-        const candidate = result.candidates?.[0];
-        
-        // Handle cases where the response might be blocked for safety reasons
-        if (!candidate || !candidate.content || !candidate.content.parts) {
-            const blockReason = result.promptFeedback?.blockReason;
-            const safetyRatings = result.promptFeedback?.safetyRatings;
-            console.error('Response blocked or invalid.', { blockReason, safetyRatings });
-            const errorMessage = blockReason 
-                ? `My response was blocked for the following reason: ${blockReason}. Please modify your prompt.`
-                : "I'm sorry, I received an invalid response from the AI. Please try again.";
-             return new Response(JSON.stringify({ choices: [{ message: { content: errorMessage } }] }), {
-                status: 200, // Sending 200 so the client can parse the friendly error
-                headers: { 'Content-Type': 'application/json' },
-            });
-        }
-
-        const generatedText = candidate.content.parts[0].text;
+        const result = await openRouterResponse.json();
+        const generatedText = result.choices?.[0]?.message?.content;
         
         // 11. Wrap the response in the format the client-side code expects.
+        // This format happens to be identical to what the client expects.
         const clientResponse = {
             choices: [{
                 message: {
@@ -124,4 +108,12 @@ Format:
         });
     }
 }
+
+// By removing the config block below, this function will default to the standard 
+// Node.js serverless runtime, which is more reliable for accessing environment variables.
+/*
+export const config = {
+  runtime: 'edge',
+};
+*/
 
