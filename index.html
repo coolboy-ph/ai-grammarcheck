@@ -16,7 +16,6 @@
             --text-primary: #f5f5f5;
             --text-secondary: #a3a3a3;
             --border: #404040;
-            --error: #ef4444;
         }
 
         * {
@@ -296,10 +295,6 @@
             border-color: var(--primary);
         }
 
-        .input-wrapper.error {
-            border-color: var(--error);
-        }
-
         .message-input {
             flex: 1;
             width: 100%;
@@ -408,7 +403,7 @@
 
 
         <div class="input-area">
-            <div class="input-wrapper" id="inputWrapper">
+            <div class="input-wrapper">
                 <textarea 
                     class="message-input" 
                     id="messageInput" 
@@ -435,10 +430,42 @@
         const messagesContainer = document.getElementById('messages');
         const welcomeContainer = document.getElementById('welcomeContainer');
         const typingIndicatorWrapper = document.getElementById('typingIndicatorWrapper');
-        const inputWrapper = document.getElementById('inputWrapper');
 
-        // The API endpoint is now our own proxy function.
-        const proxyEndpoint = "/api/proxy"; 
+
+        // !! WARNING !! 
+        // This is a placeholder key. Replace it with your actual key.
+        // It is INSECURE to expose your API key in client-side code.
+        // This is for demonstration purposes only.
+        const openRouterApiKey = "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"; 
+        
+        const endpoint = "https://openrouter.ai/api/v1/chat/completions";
+        const model = "x-ai/grok-4-fast:free"; // Or another model you prefer
+        const systemPrompt = `You are a Grammar Checker. Your job is to check the user’s English sentence and respond using the following rules and format. If the user's input is in Burmese, first translate it to English, then respond only with the Corrected Sentence and Alternative Expressions sections.
+Rules:
+- Always be clear and concise.
+- Use simple language; avoid technical grammar jargon.
+- Focus on improving fluency and natural expression.
+- Point out the exact phrase changed and explain why (keep it short).
+- Use natural line breaks, not <br> tags.
+- Use a dash (-) for bullet points.
+
+Format:
+✅ Corrected Sentence
+Provide the corrected version with proper grammar.
+
+📝 Explanation
+Explain the mistakes and corrections in simple, clear language.
+
+💡 Alternative Expressions
+Suggest 1–3 natural alternative ways to say the same thing.
+
+📚 Learning Tip
+Share a short, practical tip related to the mistake to help the user remember.
+
+Special Rule for Burmese Input:
+If the input is in Burmese, translate it to English and provide only:
+✅ Corrected Sentence
+💡 Alternative Expressions`;
 
         function adjustTextareaHeight(textarea) {
             textarea.style.height = 'auto'; // Reset height
@@ -453,7 +480,6 @@
         }
 
         function startWithPrompt(promptText) {
-            if (messageInput.disabled) return;
             messageInput.value = promptText;
             sendMessage();
         }
@@ -476,7 +502,7 @@
                 addMessage(response, 'assistant');
             } catch (error) {
                 console.error('API Error:', error);
-                addMessage(`I apologize, but I'm having trouble connecting. The proxy server might not be configured correctly. Check the Vercel deployment logs and ensure the <code>GEMINI_API_KEY</code> environment variable is set.`, 'assistant');
+                addMessage("I apologize, but I'm having trouble connecting. Please check your API key and browser console for errors.", 'assistant');
             } finally {
                 hideTypingIndicator();
                 sendButton.disabled = false;
@@ -486,34 +512,32 @@
         }
 
         async function callApi(userMessage) {
-            // The system prompt is now handled by the proxy, so we only send the history.
-            const apiMessages = []; 
+            const apiMessages = [{ role: "system", content: systemPrompt }];
             
             messageHistory.forEach(msg => {
-                // The proxy expects "user" or "assistant" as roles.
-                const role = msg.sender === 'user' ? 'user' : 'assistant';
                 apiMessages.push({
-                    role: role,
+                    role: msg.sender,
                     content: msg.content
                 });
             });
             
             apiMessages.push({ role: "user", content: userMessage });
 
-            // Fetch from our own proxy endpoint
-            const response = await fetch(proxyEndpoint, {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openRouterApiKey}`
                 },
                 body: JSON.stringify({
+                    model: model,
                     messages: apiMessages
                 })
             });
 
             if (!response.ok) {
                 const errorBody = await response.text();
-                throw new Error(`Proxy request failed with status ${response.status}: ${errorBody}`);
+                throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
             }
 
             const data = await response.json();
@@ -522,7 +546,7 @@
             if (choice && choice.message && choice.message.content) {
                 return choice.message.content;
             } else {
-                return "I'm sorry, an error occurred. I could not get a valid response from the proxy.";
+                return "I'm sorry, an error occurred. I could not get a valid response.";
             }
         }
         
@@ -548,6 +572,7 @@
             
             const messageContent = document.createElement('div');
             messageContent.className = 'message';
+            // Sanitize content before setting innerHTML in a real app
             messageContent.innerHTML = content.replace(/\n/g, '<br>');
             
             messageWrapper.append(avatar, messageContent);
@@ -567,7 +592,6 @@
         }
 
         function clearChat() {
-            if (messageInput.disabled) return;
             messagesContainer.innerHTML = '';
             if (welcomeContainer) {
                  messagesContainer.appendChild(welcomeContainer);
