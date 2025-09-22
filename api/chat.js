@@ -44,7 +44,7 @@ export default async function handler(req, res) {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${openRouterApiKey}`,
-                'HTTP-Referer': 'https://your-app-name.vercel.app', // Replace with your actual domain
+                'HTTP-Referer': 'https://ai-grammarcheck.vercel.app/', // Replace with your actual domain
                 'X-Title': 'Grammar Check AI'
             },
             body: JSON.stringify({
