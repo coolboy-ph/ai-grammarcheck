@@ -497,7 +497,7 @@ If the input is in Burmese, translate it to English and provide only:
                 addMessage(response, 'assistant');
             } catch (error) {
                 console.error('API Error:', error);
-                addMessage("I apologize, but I'm having trouble connecting. Please double-check that your API key is correct and see the browser console for more details.", 'assistant');
+                addMessage(`I apologize, but I'm having trouble connecting. \n\n**Details:** ${error.message}`, 'assistant');
             } finally {
                 hideTypingIndicator();
                 sendButton.disabled = false;
@@ -533,8 +533,16 @@ If the input is in Burmese, translate it to English and provide only:
             });
 
             if (!response.ok) {
-                const errorBody = await response.text();
-                throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+                let errorDetails = `API request failed with status ${response.status}.`;
+                try {
+                    // Try to get a specific error message from our serverless function
+                    const errorData = await response.json();
+                    errorDetails = errorData.error || JSON.stringify(errorData);
+                } catch (e) {
+                    // Fallback if the error response isn't in the expected format
+                    errorDetails += ` Response: ${await response.text()}`;
+                }
+                throw new Error(errorDetails);
             }
 
             const data = await response.json();
@@ -619,4 +627,5 @@ If the input is in Burmese, translate it to English and provide only:
     </script>
 </body>
 </html>
+
 
