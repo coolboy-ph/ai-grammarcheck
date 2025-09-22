@@ -431,12 +431,7 @@
         const welcomeContainer = document.getElementById('welcomeContainer');
         const typingIndicatorWrapper = document.getElementById('typingIndicatorWrapper');
 
-
-        // !! WARNING !! 
-        // This is a placeholder key. Replace it with your actual key.
-        // It is INSECURE to expose your API key in client-side code.
-        // This is for demonstration purposes only.
-        const openRouterApiKey = import.meta.env.OPENROUTER_API_KEY; 
+        const openRouterApiKey = import.meta.env.VITE_OPENROUTER_API_KEY; 
         
         const endpoint = "https://openrouter.ai/api/v1/chat/completions";
         const model = "x-ai/grok-4-fast:free"; // Or another model you prefer
