@@ -431,10 +431,10 @@
         const welcomeContainer = document.getElementById('welcomeContainer');
         const typingIndicatorWrapper = document.getElementById('typingIndicatorWrapper');
 
-        const openRouterApiKey = import.meta.env.VITE_OPENROUTER_API_KEY; 
-        
-        const endpoint = "https://openrouter.ai/api/v1/chat/completions";
-        const model = "x-ai/grok-4-fast:free"; // Or another model you prefer
+        // The API key is no longer needed on the front-end.
+        // We will call our own serverless function instead.
+        const endpoint = "/api/chat"; // This now points to our Vercel Serverless Function
+        const model = "x-ai/grok-4-fast:free"; // Using a reliable free model
         const systemPrompt = `You are a Grammar Checker. Your job is to check the user’s English sentence and respond using the following rules and format. If the user's input is in Burmese, first translate it to English, then respond only with the Corrected Sentence and Alternative Expressions sections.
 Rules:
 - Always be clear and concise.
@@ -445,22 +445,22 @@ Rules:
 - Use a dash (-) for bullet points.
 
 Format:
-✅ Corrected Sentence
+✅ **Corrected Sentence**
 Provide the corrected version with proper grammar.
 
-📝 Explanation
+📝 **Explanation**
 Explain the mistakes and corrections in simple, clear language.
 
-💡 Alternative Expressions
+💡 **Alternative Expressions**
 Suggest 1–3 natural alternative ways to say the same thing.
 
-📚 Learning Tip
+📚 **Learning Tip**
 Share a short, practical tip related to the mistake to help the user remember.
 
 Special Rule for Burmese Input:
 If the input is in Burmese, translate it to English and provide only:
-✅ Corrected Sentence
-💡 Alternative Expressions`;
+✅ **Corrected Sentence**
+💡 **Alternative Expressions**`;
 
         function adjustTextareaHeight(textarea) {
             textarea.style.height = 'auto'; // Reset height
@@ -497,7 +497,7 @@ If the input is in Burmese, translate it to English and provide only:
                 addMessage(response, 'assistant');
             } catch (error) {
                 console.error('API Error:', error);
-                addMessage("I apologize, but I'm having trouble connecting. Please check your API key and browser console for errors.", 'assistant');
+                addMessage("I apologize, but I'm having trouble connecting. Please double-check that your API key is correct and see the browser console for more details.", 'assistant');
             } finally {
                 hideTypingIndicator();
                 sendButton.disabled = false;
@@ -510,10 +510,12 @@ If the input is in Burmese, translate it to English and provide only:
             const apiMessages = [{ role: "system", content: systemPrompt }];
             
             messageHistory.forEach(msg => {
-                apiMessages.push({
-                    role: msg.sender,
-                    content: msg.content
-                });
+                if (msg.sender === 'user' || msg.sender === 'assistant') {
+                    apiMessages.push({
+                        role: msg.sender,
+                        content: msg.content
+                    });
+                }
             });
             
             apiMessages.push({ role: "user", content: userMessage });
@@ -521,8 +523,8 @@ If the input is in Burmese, translate it to English and provide only:
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openRouterApiKey}`
+                    'Content-Type': 'application/json'
+                    // The Authorization header is removed from here and now handled by the serverless function.
                 },
                 body: JSON.stringify({
                     model: model,
@@ -567,8 +569,10 @@ If the input is in Burmese, translate it to English and provide only:
             
             const messageContent = document.createElement('div');
             messageContent.className = 'message';
-            // Sanitize content before setting innerHTML in a real app
-            messageContent.innerHTML = content.replace(/\n/g, '<br>');
+            
+            let sanitizedContent = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            sanitizedContent = sanitizedContent.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            messageContent.innerHTML = sanitizedContent;
             
             messageWrapper.append(avatar, messageContent);
             messagesContainer.appendChild(messageWrapper);
