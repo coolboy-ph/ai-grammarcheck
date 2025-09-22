@@ -436,7 +436,7 @@
         // This is a placeholder key. Replace it with your actual key.
         // It is INSECURE to expose your API key in client-side code.
         // This is for demonstration purposes only.
-        const openRouterApiKey = "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"; 
+        const openRouterApiKey = process.env.OPENROUTER_API_KEY; 
         
         const endpoint = "https://openrouter.ai/api/v1/chat/completions";
         const model = "x-ai/grok-4-fast:free"; // Or another model you prefer
