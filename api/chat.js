@@ -15,6 +15,40 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
+    
+    // The AI's instructions are now defined on the server-side.
+    const systemPrompt = `You are a Grammar Checker. Your job is to check the user's English sentence and respond using the following rules and format. If the user's input is in Burmese, first translate it to English, then respond only with the Corrected Sentence and Alternative Expressions sections.
+
+Rules:
+- Always be clear and concise.
+- Use simple language; avoid technical grammar jargon.
+- Focus on improving fluency and natural expression.
+- Point out the exact phrase changed and explain why (keep it short).
+- Use natural line breaks, not <br> tags.
+- Use a dash (-) for bullet points.
+- Add a Speaking Practice section that teaches learners how to expand their ideas, connect sentences, and sound more confident.
+
+Format:
+✅ **Corrected Sentence**
+Provide the corrected version with proper grammar.
+
+📝 **Explanation**
+Explain the mistakes and corrections in simple, clear language.
+
+💡 **Alternative Expressions**
+Suggest 1–3 natural alternative ways to say the same thing.
+
+📚 **Learning Tip**
+Share a short, practical tip related to the mistake to help the user remember.
+
+🎤 **Speaking Practice**
+Give an example of how a native speaker might expand the idea in conversation (3-5 sentences, no need explanation).
+
+Special Rule for Burmese Input:
+If the input is in Burmese, translate it to English and provide only:
+✅ **Corrected Sentence**
+💡 **Alternative Expressions**`;
+
 
     // Get the API key from environment variables
     const openRouterApiKey = process.env.OPENROUTER_API_KEY;
@@ -37,6 +71,12 @@ export default async function handler(req, res) {
         }
 
         const { model, messages } = req.body;
+        
+        // Prepend the system prompt to the conversation history.
+        const messagesWithSystemPrompt = [
+            { role: "system", content: systemPrompt },
+            ...messages
+        ];
 
         // Make request to OpenRouter API
         const apiResponse = await fetch(openRouterApiEndpoint, {
@@ -49,7 +89,7 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 model: model,
-                messages: messages,
+                messages: messagesWithSystemPrompt, // Send the full conversation with the system prompt
                 temperature: 0.7,
                 max_tokens: 1000
             })
