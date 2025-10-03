@@ -1,22 +1,18 @@
 // This file should be placed at: /api/chat.js in your Vercel project
 
 export default async function handler(req, res) {
-    // Set CORS headers to allow requests from your frontend
+    // --- Basic Server Setup ---
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    // Handle preflight OPTIONS request
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
-
-    // Only allow POST requests
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
-    
-    // The AI's instructions are now defined on the server-side.
+
+    // --- System Prompt (Instructions for the AI) ---
     const systemPrompt = `You are a Grammar Checker. Your job is to check the user's English sentence and respond using the following rules and format. If the user's input is in Burmese, first translate it to English, then respond only with the Corrected Sentence and Alternative Expressions sections.
 
 Rules:
@@ -49,71 +45,77 @@ If the input is in Burmese, translate it to English and provide only:
 ✅ **Corrected Sentence**
 💡 **Alternative Expressions**`;
 
+    // --- Gemini API Configuration ---
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const modelName = 'gemini-2.5-flash'; // Or another model like 'gemini-pro'
+    const geminiApiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`;
 
-    // Get the API key from environment variables
-    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-    const openRouterApiEndpoint = "https://openrouter.ai/api/v1/chat/completions";
-
-    // Check if API key exists
-    if (!openRouterApiKey) {
-        console.error("Server Error: OPENROUTER_API_KEY environment variable not found.");
-        return res.status(500).json({ 
-            error: "Server configuration error: The API key is missing on the server. Please check your Vercel environment variables." 
+    if (!geminiApiKey) {
+        console.error("Server Error: GEMINI_API_KEY environment variable not found.");
+        return res.status(500).json({
+            error: "Server configuration error: The API key is missing. Please check your Vercel environment variables."
         });
     }
 
     try {
-        // Validate request body
-        if (!req.body || !req.body.model || !req.body.messages) {
-            return res.status(400).json({ 
-                error: "Bad Request: 'model' and 'messages' are required in the request body." 
-            });
+        const { messages } = req.body;
+        if (!messages) {
+            return res.status(400).json({ error: "Bad Request: 'messages' are required." });
         }
 
-        const { model, messages } = req.body;
-        
-        // Prepend the system prompt to the conversation history.
-        const messagesWithSystemPrompt = [
-            { role: "system", content: systemPrompt },
-            ...messages
-        ];
+        // --- Data Transformation for Gemini API ---
+        // Gemini requires a different format ('model' instead of 'assistant')
+        const contents = messages.map(msg => ({
+            role: msg.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: msg.content }]
+        }));
 
-        // Make request to OpenRouter API
-        const apiResponse = await fetch(openRouterApiEndpoint, {
+        // --- Call the Gemini API ---
+        const apiResponse = await fetch(geminiApiEndpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${openRouterApiKey}`,
-                'HTTP-Referer': 'https://ai-grammarcheck.vercel.app/', // Replace with your actual domain
-                'X-Title': 'Grammar Check AI'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: model,
-                messages: messagesWithSystemPrompt, // Send the full conversation with the system prompt
-                temperature: 0.7,
-                max_tokens: 1000
+                contents: contents,
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 1000,
+                }
             })
         });
 
         const responseData = await apiResponse.json();
 
-        // Handle API errors
         if (!apiResponse.ok) {
-            console.error('OpenRouter API Error:', responseData);
-            return res.status(apiResponse.status).json({
-                error: responseData.error?.message || 'API request failed',
-                details: responseData
-            });
+            console.error('Gemini API Error:', responseData);
+            const errorMsg = responseData.error?.message || 'API request failed';
+            return res.status(apiResponse.status).json({ error: errorMsg });
         }
+        
+        // --- Format Response for Frontend ---
+        // Extract the text and wrap it in the format the frontend expects.
+        const textResponse = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textResponse) {
+             throw new Error("Invalid response format from Gemini API");
+        }
+        
+        const formattedResponse = {
+            choices: [{
+                message: {
+                    content: textResponse
+                }
+            }]
+        };
 
-        // Return successful response
-        return res.status(200).json(responseData);
+        return res.status(200).json(formattedResponse);
 
     } catch (error) {
         console.error("Internal Server Error:", error);
-        return res.status(500).json({ 
-            error: "An internal server error occurred while contacting the API.",
-            details: error.message 
+        return res.status(500).json({
+            error: "An internal server error occurred.",
+            details: error.message
         });
     }
 }
