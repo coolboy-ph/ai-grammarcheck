@@ -47,7 +47,7 @@ If the input is in Burmese, translate it to English and provide only:
 
     // --- Gemini API Configuration ---
     const geminiApiKey = process.env.GEMINI_API_KEY;
-    const modelName = 'gemini-2.5-flash'; // Or another model like 'gemini-pro'
+    const modelName = 'gemini-2.5-flash-lite'; // Or another model like 'gemini-pro'
     const geminiApiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`;
 
     if (!geminiApiKey) {
